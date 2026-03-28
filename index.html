@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TiFmemory — Joc de Memorie</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap');
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Fredoka', 'Comic Sans MS', sans-serif;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  min-height: 100vh;
+  color: white;
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: hidden;
+}
+
+.header {
+  text-align: center;
+  padding: 16px 10px 8px;
+}
+.header h1 {
+  font-size: 32px;
+  background: linear-gradient(135deg, #f093fb, #f5576c, #ffd200);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: none;
+  filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.5));
+}
+.header .subtitle {
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  margin-top: 2px;
+}
+
+.stats {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  padding: 8px;
+  font-size: 18px;
+  font-weight: 600;
+}
+.stats span { text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+.stats .moves { color: #f093fb; }
+.stats .pairs { color: #ffd200; }
+.stats .timer { color: #5dade2; }
+
+.level-bar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  flex-wrap: wrap;
+}
+.level-btn {
+  background: rgba(255,255,255,0.1);
+  border: 2px solid rgba(255,255,255,0.2);
+  color: white;
+  padding: 6px 16px;
+  border-radius: 20px;
+  font-family: 'Fredoka', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.level-btn:hover { background: rgba(255,255,255,0.2); }
+.level-btn.active {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  border-color: transparent;
+  transform: scale(1.05);
+}
+
+.grid {
+  display: grid;
+  justify-content: center;
+  padding: 12px;
+  gap: 10px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.card {
+  aspect-ratio: 1;
+  perspective: 800px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 16px;
+}
+
+.card.flipped .card-inner,
+.card.matched .card-inner {
+  transform: rotateY(180deg);
+}
+
+.card-front, .card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-back {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 4px 15px rgba(102,126,234,0.4), inset 0 0 30px rgba(255,255,255,0.1);
+}
+
+.card-back::before {
+  content: '✨';
+  font-size: 36px;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.8; }
+  50% { transform: scale(1.2) rotate(10deg); opacity: 1; }
+}
+
+.card-front {
+  background: linear-gradient(135deg, #1a1a2e, #16213e);
+  transform: rotateY(180deg);
+  box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  border: 2px solid rgba(255,255,255,0.1);
+  padding: 8px;
+}
+
+.card-front .emoji {
+  font-size: clamp(32px, 8vw, 56px);
+  line-height: 1;
+  filter: drop-shadow(2px 2px 6px rgba(0,0,0,0.5));
+}
+
+.card-front .label {
+  font-size: clamp(10px, 2.5vw, 14px);
+  color: rgba(255,255,255,0.8);
+  margin-top: 4px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.card.matched .card-front {
+  background: linear-gradient(135deg, #00b894, #00cec9);
+  border-color: rgba(255,255,255,0.3);
+  animation: matchPulse 0.6s ease;
+}
+
+@keyframes matchPulse {
+  0% { transform: rotateY(180deg) scale(1); }
+  50% { transform: rotateY(180deg) scale(1.15); }
+  100% { transform: rotateY(180deg) scale(1); }
+}
+
+.card.wrong .card-inner {
+  animation: cardShake 0.4s ease;
+}
+
+@keyframes cardShake {
+  0%, 100% { transform: rotateY(180deg) translateX(0); }
+  25% { transform: rotateY(180deg) translateX(-8px); }
+  75% { transform: rotateY(180deg) translateX(8px); }
+}
+
+/* Fireworks on win */
+.firework {
+  position: fixed;
+  pointer-events: none;
+  font-size: 40px;
+  z-index: 100;
+  animation: fireworkFly 1s ease-out forwards;
+}
+
+@keyframes fireworkFly {
+  0% { transform: scale(0) rotate(0deg); opacity: 1; }
+  60% { transform: scale(1.5) rotate(180deg); opacity: 1; }
+  100% { transform: scale(2) rotate(360deg) translateY(-60px); opacity: 0; }
+}
+
+/* Win overlay */
+.win-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn { 0% { opacity: 0; } 100% { opacity: 1; } }
+
+.win-box {
+  background: linear-gradient(135deg, #1a1a2e, #302b63);
+  border-radius: 24px;
+  padding: 32px 40px;
+  text-align: center;
+  border: 2px solid rgba(255,255,255,0.15);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+  0% { transform: scale(0); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.win-box h2 { font-size: 36px; margin-bottom: 8px; }
+.win-box .stars { font-size: 48px; margin: 12px 0; }
+.win-box p { color: rgba(255,255,255,0.7); margin-bottom: 16px; }
+
+.btn {
+  background: linear-gradient(135deg, #f093fb, #f5576c);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-size: 18px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  margin: 6px;
+  transition: transform 0.2s;
+}
+.btn:hover { transform: scale(1.05); }
+.btn:active { transform: scale(0.95); }
+.btn.alt {
+  background: linear-gradient(135deg, #667eea, #764ba2);
+}
+
+/* Responsive grid */
+@media (max-width: 400px) {
+  .grid { gap: 6px; padding: 8px; }
+  .card-back::before { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🧠 TiFmemory</h1>
+  <div class="subtitle">Găsește perechile!</div>
+</div>
+
+<div class="stats">
+  <span class="moves">🎯 <span id="moves">0</span> mutări</span>
+  <span class="pairs">⭐ <span id="pairs">0</span>/<span id="totalPairs">0</span></span>
+  <span class="timer">⏱️ <span id="timer">0:00</span></span>
+</div>
+
+<div class="level-bar" id="levelBar"></div>
+<div class="grid" id="grid"></div>
+
+<script>
+const ITEMS = [
+  { emoji: '🐱', ro: 'Pisică', en: 'Cat' },
+  { emoji: '🐶', ro: 'Câine', en: 'Dog' },
+  { emoji: '🐻', ro: 'Urs', en: 'Bear' },
+  { emoji: '🦊', ro: 'Vulpe', en: 'Fox' },
+  { emoji: '🐰', ro: 'Iepure', en: 'Rabbit' },
+  { emoji: '🦋', ro: 'Fluture', en: 'Butterfly' },
+  { emoji: '🐝', ro: 'Albină', en: 'Bee' },
+  { emoji: '🐟', ro: 'Pește', en: 'Fish' },
+  { emoji: '🐢', ro: 'Broască\u021Bestoasă', en: 'Turtle' },
+  { emoji: '🦜', ro: 'Papagal', en: 'Parrot' },
+  { emoji: '🐘', ro: 'Elefant', en: 'Elephant' },
+  { emoji: '🦁', ro: 'Leu', en: 'Lion' },
+  { emoji: '🍎', ro: 'Măr', en: 'Apple' },
+  { emoji: '🍐', ro: 'Pară', en: 'Pear' },
+  { emoji: '🍌', ro: 'Banană', en: 'Banana' },
+  { emoji: '🍓', ro: 'Căpșună', en: 'Strawberry' },
+  { emoji: '🍊', ro: 'Portocală', en: 'Orange' },
+  { emoji: '🍇', ro: 'Strugure', en: 'Grape' },
+  { emoji: '🌸', ro: 'Floare', en: 'Flower' },
+  { emoji: '🌳', ro: 'Copac', en: 'Tree' },
+  { emoji: '☀️', ro: 'Soare', en: 'Sun' },
+  { emoji: '🌙', ro: 'Lună', en: 'Moon' },
+  { emoji: '⭐', ro: 'Stea', en: 'Star' },
+  { emoji: '🌈', ro: 'Curcubeu', en: 'Rainbow' },
+  { emoji: '🚗', ro: 'Mașină', en: 'Car' },
+  { emoji: '✈️', ro: 'Avion', en: 'Airplane' },
+  { emoji: '🚀', ro: 'Rachetă', en: 'Rocket' },
+  { emoji: '🎸', ro: 'Chitară', en: 'Guitar' },
+  { emoji: '🎨', ro: 'Paletă', en: 'Palette' },
+  { emoji: '📖', ro: 'Carte', en: 'Book' },
+  { emoji: '🏠', ro: 'Casă', en: 'House' },
+  { emoji: '⚽', ro: 'Minge', en: 'Ball' },
+];
+
+const LEVELS = [
+  { name: 'Ușor', pairs: 4, cols: 4 },
+  { name: 'Mediu', pairs: 8, cols: 4 },
+  { name: 'Greu', pairs: 12, cols: 6 },
+  { name: 'Expert', pairs: 16, cols: 8 },
+];
+
+const FIREWORK_EMOJIS = ['🎉', '🎊', '✨', '💫', '🌟', '⭐', '🥳', '🏆', '💐', '🎆'];
+
+let currentLevel = 0;
+let cards = [];
+let flipped = [];
+let matched = new Set();
+let moves = 0;
+let timerInterval = null;
+let startTime = null;
+let locked = false;
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function createLevelBar() {
+  const bar = document.getElementById('levelBar');
+  bar.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'level-btn' + (i === currentLevel ? ' active' : '');
+    btn.textContent = `${lv.name} (${lv.pairs})`;
+    btn.onclick = () => { currentLevel = i; startGame(); };
+    bar.appendChild(btn);
+  });
+}
+
+function startGame() {
+  const lv = LEVELS[currentLevel];
+  moves = 0;
+  flipped = [];
+  matched = new Set();
+  locked = false;
+  
+  if (timerInterval) clearInterval(timerInterval);
+  startTime = null;
+  document.getElementById('timer').textContent = '0:00';
+  document.getElementById('moves').textContent = '0';
+  document.getElementById('pairs').textContent = '0';
+  document.getElementById('totalPairs').textContent = lv.pairs;
+
+  createLevelBar();
+
+  // Pick random items
+  const selected = shuffle(ITEMS).slice(0, lv.pairs);
+  // Duplicate for pairs and shuffle
+  cards = shuffle([...selected, ...selected].map((item, idx) => ({
+    ...item,
+    id: idx,
+    pairKey: item.emoji
+  })));
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  
+  // Calculate columns
+  const totalCards = cards.length;
+  let cols = lv.cols;
+  if (window.innerWidth < 500 && cols > 4) cols = 4;
+  grid.style.gridTemplateColumns = `repeat(${cols}, minmax(60px, 90px))`;
+
+  cards.forEach((card, idx) => {
+    const el = document.createElement('div');
+    el.className = 'card';
+    el.dataset.idx = idx;
+    el.innerHTML = `
+      <div class="card-inner">
+        <div class="card-back"></div>
+        <div class="card-front">
+          <div class="emoji">${card.emoji}</div>
+          <div class="label">${card.ro}</div>
+        </div>
+      </div>
+    `;
+    el.addEventListener('click', () => flipCard(idx, el));
+    grid.appendChild(el);
+  });
+}
+
+function flipCard(idx, el) {
+  if (locked) return;
+  if (matched.has(cards[idx].pairKey)) return;
+  if (flipped.length >= 2) return;
+  if (flipped.length === 1 && flipped[0].idx === idx) return;
+
+  // Start timer on first flip
+  if (!startTime) {
+    startTime = Date.now();
+    timerInterval = setInterval(updateTimer, 100);
+  }
+
+  el.classList.add('flipped');
+  flipped.push({ idx, el, pairKey: cards[idx].pairKey });
+
+  if (flipped.length === 2) {
+    moves++;
+    document.getElementById('moves').textContent = moves;
+
+    if (flipped[0].pairKey === flipped[1].pairKey) {
+      // Match!
+      matched.add(flipped[0].pairKey);
+      document.getElementById('pairs').textContent = matched.size;
+
+      setTimeout(() => {
+        flipped[0].el.classList.add('matched');
+        flipped[1].el.classList.add('matched');
+        spawnStars(flipped[0].el);
+        spawnStars(flipped[1].el);
+        flipped = [];
+
+        if (matched.size === LEVELS[currentLevel].pairs) {
+          setTimeout(showWin, 500);
+        }
+      }, 300);
+    } else {
+      // No match
+      locked = true;
+      setTimeout(() => {
+        flipped[0].el.classList.add('wrong');
+        flipped[1].el.classList.add('wrong');
+      }, 200);
+      setTimeout(() => {
+        flipped[0].el.classList.remove('flipped', 'wrong');
+        flipped[1].el.classList.remove('flipped', 'wrong');
+        flipped = [];
+        locked = false;
+      }, 900);
+    }
+  }
+}
+
+function updateTimer() {
+  if (!startTime) return;
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  document.getElementById('timer').textContent = `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+function spawnStars(el) {
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  for (let i = 0; i < 4; i++) {
+    const star = document.createElement('div');
+    star.className = 'firework';
+    star.textContent = FIREWORK_EMOJIS[Math.floor(Math.random() * FIREWORK_EMOJIS.length)];
+    star.style.left = (cx + (Math.random() - 0.5) * 80) + 'px';
+    star.style.top = (cy + (Math.random() - 0.5) * 80) + 'px';
+    document.body.appendChild(star);
+    setTimeout(() => star.remove(), 1100);
+  }
+}
+
+function showWin() {
+  clearInterval(timerInterval);
+  const elapsed = Math.floor((Date.now() - startTime) / 1000);
+  const pairs = LEVELS[currentLevel].pairs;
+  
+  // Stars based on efficiency (moves vs perfect)
+  const perfect = pairs; // minimum possible moves
+  const ratio = moves / perfect;
+  let stars = ratio <= 1.5 ? '⭐⭐⭐' : ratio <= 2.5 ? '⭐⭐' : '⭐';
+
+  // Fireworks
+  for (let i = 0; i < 15; i++) {
+    setTimeout(() => {
+      const fw = document.createElement('div');
+      fw.className = 'firework';
+      fw.textContent = FIREWORK_EMOJIS[Math.floor(Math.random() * FIREWORK_EMOJIS.length)];
+      fw.style.left = (Math.random() * window.innerWidth) + 'px';
+      fw.style.top = (Math.random() * window.innerHeight * 0.6) + 'px';
+      fw.style.fontSize = (30 + Math.random() * 30) + 'px';
+      document.body.appendChild(fw);
+      setTimeout(() => fw.remove(), 1100);
+    }, i * 100);
+  }
+
+  const min = Math.floor(elapsed / 60);
+  const sec = elapsed % 60;
+  const hasNext = currentLevel < LEVELS.length - 1;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'win-overlay';
+  overlay.innerHTML = `
+    <div class="win-box">
+      <h2>🎉 Bravo!</h2>
+      <div class="stars">${stars}</div>
+      <p>${moves} mutări · ${min}:${sec.toString().padStart(2, '0')}</p>
+      <button class="btn" onclick="this.closest('.win-overlay').remove(); startGame()">🔄 Rejoacă</button>
+      ${hasNext ? `<button class="btn alt" onclick="this.closest('.win-overlay').remove(); currentLevel++; startGame()">▶️ Următorul</button>` : ''}
+    </div>
+  `;
+  document.body.appendChild(overlay);
+}
+
+createLevelBar();
+startGame();
+</script>
+</body>
+</html>
